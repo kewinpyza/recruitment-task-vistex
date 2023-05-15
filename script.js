@@ -328,7 +328,6 @@ class Grid {
   onSearchReset() {
     // Clear search input
     searchInputElement.value = "";
-
     // Show all initial rows
     for (const [_, row] of this.dataViewRef.entries()) {
       row.style.display = "";
@@ -363,12 +362,10 @@ class Grid {
   }
 
   onMarkEmptyClick(event) {
-    // Loop through all rows in the table
     for (const [dataRow, row] of this.dataViewRef.entries()) {
       for (const column of this.metadata) {
         // Check if the column is numeric and the value is empty
         if (column.type === "number" && !dataRow[column.id]) {
-          // Add the .bordered class to the cell
           const cell = row.cells[this.metadata.indexOf(column)];
           cell.classList.add("bordered");
         }
@@ -377,10 +374,8 @@ class Grid {
   }
 
   onFillTableClick(event) {
-    // Loop through all rows in the table
     for (const [dataRow, row] of this.dataViewRef.entries()) {
       for (const column of this.metadata) {
-        // Check if the column is numeric and the value is empty
         if (column.type === "number" && !dataRow[column.id]) {
           const cell = row.cells[this.metadata.indexOf(column)];
           if (column.id === "quantity" || column.id === "unit_price") {
@@ -389,11 +384,13 @@ class Grid {
               ? dataRow.quantity
               : dataRow.unit_price;
             cell.textContent = totalNum / divider;
+            dataRow[column.id] = totalNum / divider; // Update the data row with the computed value
           }
           if (column.id === "total_value") {
             const multiplier1 = dataRow.quantity;
             const multiplier2 = dataRow.unit_price;
             cell.textContent = multiplier1 * multiplier2;
+            dataRow[column.id] = multiplier1 * multiplier2; // Update the data row with the computed value
           }
         }
       }
@@ -401,11 +398,39 @@ class Grid {
   }
 
   onCountEmptyClick(event) {
-    console.error(`Counting amount of empty cells...`);
+    let emptyCellsCount = 0;
+
+    for (const dataRow of this.data) {
+      for (const column of this.metadata) {
+        if (column.type === "number" && !dataRow[column.id]) {
+          const cell =
+            this.dataViewRef.get(dataRow).cells[this.metadata.indexOf(column)];
+          const isEmpty = cell.textContent.trim() === "";
+          if (isEmpty) emptyCellsCount++;
+        }
+      }
+    }
+
+    alert(`Found ${emptyCellsCount} empty cells`);
   }
 
   onComputeTotalsClick(event) {
-    console.error(`Computing summary totals...`);
+    const visibleNumericColumns = this.metadata.filter(
+      (column, index) =>
+        this.columnVisibility[index] && column.type === "number"
+    );
+
+    if (visibleNumericColumns.length > 0) {
+      const lastVisibleColumn =
+        visibleNumericColumns[visibleNumericColumns.length - 1];
+
+      let totalSum = this.data.reduce((sum, dataRow) => {
+        const value = dataRow[lastVisibleColumn.id];
+        return typeof value === "number" ? sum + value : sum;
+      }, 0);
+
+      alert(`Sum of "${lastVisibleColumn.label}" equals ${totalSum}`);
+    }
   }
 
   onFunctionsResetClick(event) {
@@ -413,7 +438,6 @@ class Grid {
       for (const column of this.metadata) {
         // Check if the column is numeric and the value is empty
         if (column.type === "number" && !dataRow[column.id]) {
-          // Add the .bordered class to the cell
           const cell = row.cells[this.metadata.indexOf(column)];
           cell.classList.remove("bordered");
         }
@@ -421,7 +445,7 @@ class Grid {
     }
   }
 
-  // Helper functions to hide and show column
+  // Helper functions to hide/show column
   hideColumn(columnIndex) {
     for (const [_, row] of this.dataViewRef.entries()) {
       row.cells[columnIndex].style.display = "none";
