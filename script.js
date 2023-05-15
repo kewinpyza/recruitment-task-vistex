@@ -89,6 +89,21 @@ const metadata = [
     type: "number",
     label: "Total (Quantity * Unit price)",
   },
+  {
+    id: "genre",
+    type: "string",
+    label: "Genre",
+  },
+  {
+    id: "pages",
+    type: "number",
+    label: "Pages",
+  },
+  {
+    id: "rating",
+    type: "number",
+    label: "Rating",
+  },
 ];
 
 const additionalDataFromBooksDB = [
@@ -206,6 +221,7 @@ class Grid {
   constructor() {
     this.data = data;
     this.metadata = metadata;
+    this.additionalDataFromBooksDB = additionalDataFromBooksDB;
 
     // Initialize all columns as visible
     this.columnVisibility = Array(this.metadata.length).fill(true);
@@ -218,6 +234,7 @@ class Grid {
 
     this.render();
     this.live();
+    this.renderSummary();
   }
 
   render() {
@@ -243,19 +260,93 @@ class Grid {
   }
 
   renderBody() {
-    for (const dataRow of this.data) {
+    this.data.forEach((dataRow) => {
       const row = this.body.insertRow();
 
       for (const column of this.metadata) {
         const cell = row.insertCell();
-
         cell.classList.add(column.type);
-        cell.innerText = dataRow[column.id];
+
+        if (dataRow[column.id]) {
+          cell.innerText = dataRow[column.id];
+        } else if (["genre", "pages", "rating"].includes(column.id)) {
+          const additionalData = additionalDataFromBooksDB.find(
+            (item) =>
+              item.title === dataRow.title && item.author === dataRow.author
+          );
+          cell.innerText = additionalData?.[column.id] || "";
+        } else {
+          cell.innerText = "";
+        }
       }
 
       // connect data row reference with view row reference
       this.dataViewRef.set(dataRow, row);
+    });
+  }
+
+  renderSummary() {
+    const summaryTable = document.createElement("table");
+
+    const summaryHead = summaryTable.createTHead();
+    const summaryBody = summaryTable.createTBody();
+
+    // Create the summary table headers
+    const headerRow = summaryHead.insertRow();
+    const headerLabels = [
+      "Author",
+      "Titles",
+      "Total Quantity",
+      "Total Revenue",
+      "Avg Quantity",
+      "Avg Unit Price",
+    ];
+    for (const label of headerLabels) {
+      const cell = headerRow.insertCell();
+      cell.innerText = label;
     }
+
+    // Compute the summary data
+    const authorSummary = new Map();
+
+    for (const dataRow of this.data) {
+      const author = dataRow.author;
+      if (!authorSummary.has(author)) {
+        authorSummary.set(author, {
+          titles: 0,
+          quantity: 0,
+          revenue: 0,
+          unitPrice: 0,
+        });
+      }
+
+      const summary = authorSummary.get(author);
+      summary.titles++;
+      summary.quantity += dataRow.quantity || 0;
+      summary.revenue += (dataRow.quantity || 0) * (dataRow.unit_price || 0);
+      summary.unitPrice += dataRow.unit_price || 0;
+    }
+
+    // Create the summary table rows
+    for (const [author, summary] of authorSummary.entries()) {
+      const row = summaryBody.insertRow();
+      const cells = [
+        author,
+        summary.titles,
+        summary.quantity,
+        summary.revenue,
+        summary.quantity / summary.titles,
+        summary.unitPrice / summary.titles,
+      ];
+
+      for (const cellValue of cells) {
+        const cell = row.insertCell();
+        cell.innerText = cellValue;
+      }
+    }
+
+    // Append the summary table to the document body
+    document.body.appendChild(summaryTable);
   }
 
   live() {
@@ -365,7 +456,12 @@ class Grid {
     for (const [dataRow, row] of this.dataViewRef.entries()) {
       for (const column of this.metadata) {
         // Check if the column is numeric and the value is empty
-        if (column.type === "number" && !dataRow[column.id]) {
+        if (
+          column.type === "number" &&
+          !dataRow[column.id] &&
+          column.id !== "pages" &&
+          column.id !== "rating"
+        ) {
           const cell = row.cells[this.metadata.indexOf(column)];
           cell.classList.add("bordered");
         }
@@ -384,13 +480,11 @@ class Grid {
               ? dataRow.quantity
               : dataRow.unit_price;
             cell.textContent = totalNum / divider;
-            dataRow[column.id] = totalNum / divider; // Update the data row with the computed value
           }
           if (column.id === "total_value") {
             const multiplier1 = dataRow.quantity;
             const multiplier2 = dataRow.unit_price;
             cell.textContent = multiplier1 * multiplier2;
-            dataRow[column.id] = multiplier1 * multiplier2; // Update the data row with the computed value
           }
         }
       }
@@ -415,31 +509,42 @@ class Grid {
   }
 
   onComputeTotalsClick(event) {
-    const visibleNumericColumns = this.metadata.filter(
-      (column, index) =>
-        this.columnVisibility[index] && column.type === "number"
-    );
+    let totalSum = 0;
 
-    if (visibleNumericColumns.length > 0) {
-      const lastVisibleColumn =
-        visibleNumericColumns[visibleNumericColumns.length - 1];
+    for (const dataRow of this.data) {
+      for (const column of this.metadata) {
+        if (column.type === "number" && column.id === "total_value") {
+          const cell =
+            this.dataViewRef.get(dataRow).cells[this.metadata.indexOf(column)];
+          const cellValue = parseFloat(cell.textContent.trim());
 
-      let totalSum = this.data.reduce((sum, dataRow) => {
-        const value = dataRow[lastVisibleColumn.id];
-        return typeof value === "number" ? sum + value : sum;
-      }, 0);
-
-      alert(`Sum of "${lastVisibleColumn.label}" equals ${totalSum}`);
+          if (!isNaN(cellValue)) {
+            totalSum += cellValue;
+          }
+        }
+      }
     }
+
+    alert(
+      `Sum of "${
+        this.metadata[this.metadata.length - 1].label
+      }" equals ${totalSum}`
+    );
   }
 
   onFunctionsResetClick(event) {
     for (const [dataRow, row] of this.dataViewRef.entries()) {
       for (const column of this.metadata) {
         // Check if the column is numeric and the value is empty
-        if (column.type === "number" && !dataRow[column.id]) {
+        if (
+          column.type === "number" &&
+          !dataRow[column.id] &&
+          column.id !== "pages" &&
+          column.id !== "rating"
+        ) {
           const cell = row.cells[this.metadata.indexOf(column)];
           cell.classList.remove("bordered");
+          cell.textContent = "";
         }
       }
     }
