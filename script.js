@@ -330,7 +330,7 @@ class Grid {
     searchInputElement.value = "";
 
     // Show all initial rows
-    for (const [dataRow, row] of this.dataViewRef.entries()) {
+    for (const [_, row] of this.dataViewRef.entries()) {
       row.style.display = "";
     }
   }
@@ -363,11 +363,41 @@ class Grid {
   }
 
   onMarkEmptyClick(event) {
-    console.error(`Marking empty cells...`);
+    // Loop through all rows in the table
+    for (const [dataRow, row] of this.dataViewRef.entries()) {
+      for (const column of this.metadata) {
+        // Check if the column is numeric and the value is empty
+        if (column.type === "number" && !dataRow[column.id]) {
+          // Add the .bordered class to the cell
+          const cell = row.cells[this.metadata.indexOf(column)];
+          cell.classList.add("bordered");
+        }
+      }
+    }
   }
 
   onFillTableClick(event) {
-    console.error(`Filling empty cells with data...`);
+    // Loop through all rows in the table
+    for (const [dataRow, row] of this.dataViewRef.entries()) {
+      for (const column of this.metadata) {
+        // Check if the column is numeric and the value is empty
+        if (column.type === "number" && !dataRow[column.id]) {
+          const cell = row.cells[this.metadata.indexOf(column)];
+          if (column.id === "quantity" || column.id === "unit_price") {
+            const totalNum = dataRow.total_value;
+            const divider = dataRow.quantity
+              ? dataRow.quantity
+              : dataRow.unit_price;
+            cell.textContent = totalNum / divider;
+          }
+          if (column.id === "total_value") {
+            const multiplier1 = dataRow.quantity;
+            const multiplier2 = dataRow.unit_price;
+            cell.textContent = multiplier1 * multiplier2;
+          }
+        }
+      }
+    }
   }
 
   onCountEmptyClick(event) {
@@ -379,7 +409,16 @@ class Grid {
   }
 
   onFunctionsResetClick(event) {
-    console.error(`Resetting all function...`);
+    for (const [dataRow, row] of this.dataViewRef.entries()) {
+      for (const column of this.metadata) {
+        // Check if the column is numeric and the value is empty
+        if (column.type === "number" && !dataRow[column.id]) {
+          // Add the .bordered class to the cell
+          const cell = row.cells[this.metadata.indexOf(column)];
+          cell.classList.remove("bordered");
+        }
+      }
+    }
   }
 
   // Helper functions to hide and show column
